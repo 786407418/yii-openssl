@@ -8,8 +8,11 @@
 namespace shangxin\openssl;
 
 use yii\base\Component;
+use yii\base\Event;
 
 class Openssl extends Component{
+
+    const EVENT_BEFORE_OPERATION = 'before_operation';
 
     /**
      * @var string the name of the root path
@@ -30,13 +33,33 @@ class Openssl extends Component{
 
     /**
      * @var array   openssl config
+     * $config=[
+     *          'private_key_bits'=>1024,
+     *          "private_key_type" => OPENSSL_KEYTYPE_RSA,
+     *          'config'=>'F:\phpstudy\PHPTutorial\Apache\conf\openssl.cnf'
+     * ]
      */
-    public $config=[
-//        'private_key_bits'=>1024,
-//        "private_key_type" => OPENSSL_KEYTYPE_RSA,
-//        'config'=>'F:\phpstudy\PHPTutorial\Apache\conf\openssl.cnf'
-    ];
+    public $config=[];
 
+    /**
+     * Openssl constructor.
+     * @param array $config
+     */
+    public function __construct(array $config = [])
+    {
+        parent::__construct($config);
+        $this->on(self::EVENT_BEFORE_OPERATION,[$this,'check_path'],$this->verify_path);
+    }
+
+
+    /**
+     * @param Event $event
+     */
+    public function check_path($event){
+        if(!is_dir($event->data)){
+            mkdir($event->data,0777);
+        }
+    }
 
     /**
      * openssl生成公钥私钥
@@ -44,6 +67,7 @@ class Openssl extends Component{
      */
     public function generate_key(){
         try{
+            $this->trigger(self::EVENT_BEFORE_OPERATION);
             $extension = extension_loaded('openssl');
             if(!$extension){
                 throw new \Exception('the extension of openssl not exist!');
@@ -54,6 +78,7 @@ class Openssl extends Component{
             }
             openssl_pkey_export($resource,$privateKey,null,$this->config);
             $private_key_path = $this->verify_path.$this->private_key_file_name;
+
 
             $fp_private = fopen($private_key_path,'w');
             fwrite($fp_private,$privateKey);
